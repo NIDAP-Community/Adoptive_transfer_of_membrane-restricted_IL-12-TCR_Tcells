@@ -1,0 +1,2054 @@
+---
+title: "Untitled"
+author: "Philip Homan"
+date: "2023-10-31"
+output: html_document
+---
+
+## Sequences 
+
+```{r setup}
+# library(Seurat)
+# install.packages('Seurat',lib='/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat5_0')
+# remotes::install_version("SeuratObject", version = "4.1.0",lib='/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat4_1')
+
+rm(list = ls())
+
+switchLib=function(SVersion){
+rlib="/Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/library"
+plib4="/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat4_1"
+plib5="/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat5_0"
+
+isavailable=require('Libra')
+  if(isavailable){detach("package:Libra", unload = TRUE)}
+isavailable=require('Seurat')
+  if(isavailable){detach("package:Seurat", unload = TRUE)}
+isavailable=require('SeuratObject')
+  if(isavailable){detach("package:SeuratObject", unload = TRUE)}
+
+
+
+if (SVersion=='V4') {
+.libPaths(plib4)
+# myPaths <- .libPaths()   # get the paths
+# myPaths <- c(myPaths[2], myPaths[1])  # switch them
+# .libPaths(myPaths)  # reassign them
+# .libPaths(.libPaths()[grep(plib4,.libPaths(),invert = F)])
+
+library("Seurat",lib.loc=plib4)
+library("SeuratObject",lib.loc=plib4)
+
+
+}else if(SVersion=='V5'){
+
+.libPaths(plib5)
+# myPaths <- .libPaths()   # get the paths
+# myPaths <- c(myPaths[2], myPaths[1])  # switch them
+# .libPaths(myPaths)  # reassign them
+# .libPaths(.libPaths()[grep(plib5,.libPaths(),invert = F)])
+
+library("Seurat",lib.loc=plib5)
+library("SeuratObject",lib.loc=plib5)
+  
+  
+  }
+
+print(.libPaths())
+}
+
+
+library(data.table)
+
+
+switchLib('V4')
+
+
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggalluvial)
+library(ggpubr)
+library(RColorBrewer)
+library(grid)
+library(gridExtra)
+library(EnhancedVolcano)
+library(ggVennDiagram)
+# library(SCWorkflow)
+library(circlize)
+library(viridisLite)
+library(viridis)
+source('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/Analysis/Functions.R')
+
+
+
+
+
+# SO=readRDS('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/seurat_object.rds')
+SO=readRDS('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/seurat_object_MODScoreSO2_RmvNKandFibro.rds')
+# SO2=readRDS('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/seurat_object_ReclusteredSO_RmvNKandFibro.rds')
+
+Valpha='atggacaagatcctgacagcatcgtttttactcctaggccttcacctagctggggtgaatggccagcagcaggagaaacgtgacgacagcacttttaactacttcccatggtaccagcagttccctggggaaggccctgcactcctgatatccatacgttcagtgtccgataaaaaggaagatggacgattcacaatcttcttcaataaaagggagaaaaagctctccttgcacatcacagactctcagcctggagactcagctacctacttctgtgcagcaagtgacaactatcagttgatctggggctctgggaccaagctaattataaagccagacatccagaacccagaacctgctgtgtaccagttaaaagatcctcggtctcaggacagcaccctctgcctgttcaccgactttgactcccaaatcaatgtgccgaaaaccatggaatctggaacgttcatcactgacaaaactgtgctggacatgaaagctatggattccaagagcaatggggccattgcctggagcaaccagacaagcttcacctgccaagatatcttcaaagagaccaacgccacctaccccagttcagacgttccctgtgatgccacgttgactgagaaaagctttgaaacagatatgaacctaaactttcaaaacctgtcagttatgggactccgaatcctcctgctgaaagtagccggatttaacctgctcatgacgctgaggctgtggtcctccgga'
+
+
+Vbeta='atgtctaacactgtcctcgctgattctgcctggggcatcaccctgctatcttgggttactgtctttctcttgggaacaagttcagcagattctggggttgtccagtctccaagacacataatcaaagaaaagggaggaaggtccgttctgacgtgtattcccatctctggacatagcaatgtggtctggtaccagcagactctggggaaggaattaaagttccttattcagcattatgaaaaggtggagagagacaaaggattcctacccagcagattctcagtccaacagtttgatgactatcactctgaaatgaacatgagtgccttggaactggaggactctgctatgtacttctgtgccagctctcgggccaattatgaacagtacttcggtcccggcaccaggctcacggttttagaggatctgagaaatgtgactccacccaaggtctccttgtttgagccatcaaaagcagagattgcaaacaaacaaaaggctaccctcgtgtgcttggccaggggcttcttccctgaccacgtggagctgagctggtgggtgaatggcaaggaggtccacagtggggtcagcacggaccctcaggcctacaaggagagcaattatagctactgcctgagcagccgcctgagggtctctgctaccttctggcacaatcctcgaaaccacttccgctgccaagtgcagttccatgggctttcagaggaggacaagtggccagagggctcacccaaacctgtcacacagaacatcagtgcagaggcctggggccgagcagactgtggaatcacttcagcatcctatcatcagggggttctgtctgcaaccatcctctatgagatcctactggggaaggccaccctatatgctgtgctggtcagtggcctggtgctgatggccatggtcaagaaaaaaaattcctga'
+
+
+toupper('atggacaagatcctgacagcatcgtttttactcctaggccttcacctagctggggtgaatggccagcagcaggagaaacgtgacgacagcacttttaactacttcccatggtaccagcagttccctggggaaggccctgcactcctgatatccatacgttcagtgtccgataaaaaggaagatggacgattcacaatcttcttcaataaaagggagaaaaagctctccttgcacatcacagactctcagcctggagactcagctacctacttctgtgcagcaagtgacaactatcagttgatctggggctctgggaccaagctaattataaagccagacatccagaacccagaacctgctgtgtaccagttaaaagatcctcggtctcaggacagcaccctctgcctgttcaccgactttgactcccaaatcaatgtgccgaaaaccatggaatctggaacgttcatcactgacaaaactgtgctggacatgaaagctatggattccaagagcaatggggccattgcctggagcaaccagacaagcttcacctgccaagatatcttcaaagagaccaacgccacctaccccagttcagacgttccctgtgatgccacgttgactgagaaaagctttgaaacagatatgaacctaaactttcaaaacctgtcagttatgggactccgaatcctcctgctgaaagtagccggatttaacctgctcatgacgctgaggctgtggtcctccgga'
+)
+"ATGGACAAGATCCTGACAGCATCGTTTTTACTCCTAGGCCTTCACCTAGCTGGGGTGAATGGCCAGCAGCAGGAGAAACGTGACGACAGCACTTTTAACTACTTCCCATGGTACCAGCAGTTCCCTGGGGAAGGCCCTGCACTCCTGATATCCATACGTTCAGTGTCCGATAAAAAGGAAGATGGACGATTCACAATCTTCTTCAATAAAAGGGAGAAAAAGCTCTCCTTGCACATCACAGACTCTCAGCCTGGAGACTCAGCTACCTACTTCTGTGCAGCAAGTGACAACTATCAGTTGATCTGGGGCTCTGGGACCAAGCTAATTATAAAGCCAGACATCCAGAACCCAGAACCTGCTGTGTACCAGTTAAAAGATCCTCGGTCTCAGGACAGCACCCTCTGCCTGTTCACCGACTTTGACTCCCAAATCAATGTGCCGAAAACCATGGAATCTGGAACGTTCATCACTGACAAAACTGTGCTGGACATGAAAGCTATGGATTCCAAGAGCAATGGGGCCATTGCCTGGAGCAACCAGACAAGCTTCACCTGCCAAGATATCTTCAAAGAGACCAACGCCACCTACCCCAGTTCAGACGTTCCCTGTGATGCCACGTTGACTGAGAAAAGCTTTGAAACAGATATGAACCTAAACTTTCAAAACCTGTCAGTTATGGGACTCCGAATCCTCCTGCTGAAAGTAGCCGGATTTAACCTGCTCATGACGCTGAGGCTGTGGTCCTCCGGA"
+
+# #FWR1_NT= CAGCAGCAGGTGAGACAAAGTCCCCAATCTCTGACAGTCTGGGAAGGAGAGACCGCAATTCTGAACTGCAGTTATGAG
+# CDR1_NT=GACAGCACTTTTAACTAC
+# FWR2_NT= TTCCCATGGTACCAGCAGTTCCCTGGGGAAGGCCCTGCACTCCTGATATCC
+# CDR2_NT= ATACGTTCAGTGTCCGATAAA
+# FWR3_NT= AAGGAAGATGGACGATTCACAATCTTCTTCAATAAAAGGGAGAAAAAGCTCTCCTTGCACATCACAGACTCTCAGCCTGGAGACTCAGCTACCTACTTC
+# CDR3_NT= TGTGCAGCAAGTGACAACTATCAGTTGATCTGG
+# FWR4_NT= GGCTCTGGGACCAAGCTAATTATAAAGCCAG
+
+
+
+SO@meta.data$barcode=gsub('MSaV1_HTO0[1-9]+_','',rownames(SO@meta.data))
+SO@meta.data$barcode=gsub('CaIL12_HTO0[1-9]+_','',SO@meta.data$barcode)
+
+
+
+#######
+## Rename Treatment column variables
+# SO@meta.data$Treatment%>%unique
+cntrl_name='OT-I-control'
+IL12_name='OT-I-caIL-12'
+
+SO@meta.data$Treatment=gsub('OTI_control',cntrl_name,SO@meta.data$Treatment)
+SO@meta.data$Treatment=gsub('OTI_caIL12',IL12_name,SO@meta.data$Treatment)
+
+
+
+#### TCell Populations
+# Original populations
+tcelpop=c('CD4_T', 'CD8_Cytotoxic','CD8_Exhausted','CD8_Ki67','CD8_Naivelike', 'CD8_T','T_cell', 'Treg', 'unknown')
+# Updated Populations
+tcelpop=c('CD4_T','CD4_Treg','CD8_T','CD8_Effector','CD8_Exhausted','CD8_Ki67','CD8_Naivelike','unknown')
+
+ct1_name='OT-I T cell'
+endo_name="Endogenous T cell"
+
+TcellClrs=brewer.pal(length(tcelpop),'Set1')
+names(TcellClrs)=tcelpop
+
+```
+
+## check Sequences 
+
+```{r}
+# TCR_CaIL12=read.delim('/Volumes/CCBR/projects/ccbr1256/02_PrimaryAnalysisOutput/03_FilteredMatricesH5/SCAF3695_OT-1-CaIL12_filtered_contig_annotations.csv',sep = ',')
+# TCR_CaIL12=TCR_CaIL12[TCR_CaIL12$barcode%in%SO@meta.data$barcode,]
+# TCR_CaIL12$sample='caIL-12'
+# TCR_CaIL12$contig=gsub('[A-Z]+-1_','',TCR_CaIL12$contig_id)
+# # TCR_CaIL12$contig=gsub('contig_1','HTO01',TCR_CaIL12$contig)
+# # TCR_CaIL12$contig=gsub('contig_2','HTO02',TCR_CaIL12$contig)
+# # TCR_CaIL12$contig=gsub('contig_3','HTO03',TCR_CaIL12$contig)
+# # TCR_CaIL12$contig=gsub('contig_4','HTO04',TCR_CaIL12$contig)
+# TCR_CaIL12$contig_barcode=paste0(TCR_CaIL12$sample,'_',TCR_CaIL12$contig,'_',TCR_CaIL12$barcode)
+# 
+# 
+# TCR_MSaV1=read.delim('/Volumes/CCBR/projects/ccbr1256/02_PrimaryAnalysisOutput/03_FilteredMatricesH5/SCAF3694_OT-1-MSaV1_filtered_contig_annotations.csv',sep = ',')
+# TCR_MSaV1=TCR_MSaV1[TCR_MSaV1$barcode%in%SO@meta.data$barcode,]
+# TCR_MSaV1$sample='MSaV1'
+# TCR_MSaV1$contig=gsub('[A-Z]+-1_','',TCR_MSaV1$contig_id)
+# # TCR_MSaV1$contig=gsub('contig_1','HTO01',TCR_MSaV1$contig)
+# # TCR_MSaV1$contig=gsub('contig_2','HTO02',TCR_MSaV1$contig)
+# # TCR_MSaV1$contig=gsub('contig_3','HTO03',TCR_MSaV1$contig)
+# # TCR_MSaV1$contig=gsub('contig_4','HTO04',TCR_MSaV1$contig)
+# TCR_MSaV1$contig_barcode=paste0(TCR_MSaV1$sample,'_',TCR_MSaV1$contig,'_',TCR_MSaV1$barcode)
+# 
+# 
+# 
+# library(GenomicRanges)
+# library(Biostrings)
+# 
+# Valpha=DNAString(Valpha)
+# Vbeta=DNAString(Vbeta)
+# 
+# 
+# TCR=rbind(TCR_CaIL12,TCR_MSaV1)
+# TCR$Sequence=apply(TCR[,c('cdr1_nt','fwr2_nt','cdr2_nt','fwr3_nt','cdr3_nt',"fwr4_nt")],1,paste,collapse='')
+# 
+# TCR_DS=DNAStringSet(TCR[,'Sequence'])
+# # names(TCR_DS)=TCR$contig_barcode
+# names(TCR_DS)=TCR$contig_id
+# 
+# # pairwiseAlignment(pattern = DNAString(TCR_MSaV1[,'fwr1_nt',drop=F]),subject = Valpha, type="overlap")
+# Valpha_out1=pairwiseAlignment(pattern = TCR_DS,subject = Valpha, type="overlap")
+# # pairwiseAlignment(pattern = TCR_DS[2],subject = Valpha, type="overlap")
+# outAlphaTable=cbind(names(TCR_DS),Valpha_out1@score)
+# colnames(outAlphaTable)=c('contig_id','score_Valpha')
+# 
+# Vbeta_out1=pairwiseAlignment(pattern = TCR_DS,subject = Vbeta, type="overlap")
+# # pairwiseAlignment(pattern = TCR_DS[2],subject = Vbeta, type="overlap")
+# outbetaTable=cbind(names(TCR_DS),Vbeta_out1@score)
+# colnames(outbetaTable)=c('contig_id','score_Vbeta')
+# 
+# 
+# TCR2=merge(TCR,outAlphaTable,by='contig_id',all.x=T)
+# TCR2$score_Valpha=as.numeric(TCR2$score_Valpha)
+# TCR2=merge(TCR2,outbetaTable,by='contig_id',all.x=T)
+# TCR2$score_Vbeta=as.numeric(TCR2$score_Vbeta)
+# 
+# 
+# TCR2%>%ggplot(aes(x=score_Valpha))+geom_density()
+# TCR2$OTI_Valpha=NA
+# TCR2[TCR2$score_Valpha>400&is.na(TCR2$score_Valpha)==F,'OTI_Valpha']='Valpha'
+# TCR2%>%ggplot(aes(x=score_Vbeta))+geom_density()
+# TCR2$OTI_Vbeta=NA
+# TCR2[TCR2$score_Vbeta>300&is.na(TCR2$score_Vbeta)==F,'OTI_Vbeta']='Vbeta'
+# 
+# TCR2$OTI=paste0(TCR2$OTI_Valpha,"_",TCR2$OTI_Vbeta)
+# # TCR2$OTI2=NA
+# # TCR2$OTI2=apply(TCR2,1,FUN=function(x){
+# #   out=c(TCR2[x,'OTI_Valpha'],TCR2[x,'OTI_Vbeta'])%>%sort()%>%paste0(collapse = "_")
+# #   # print(out)
+# #   # TCR2[x,'OTI2']=out
+# #   return(out)
+# # })
+# TCR2$OTI=gsub('NA_|_NA','',TCR2$OTI)
+# 
+# 
+# TCR2$OTI%>%table
+# 
+# 
+# TCR3=TCR2[order(TCR2$contig_id,decreasing = T),] %>%
+#       group_by(barcode) %>%
+#       # filter(chain == "TRB") %>%
+#       summarise(cell_beta_seq_list = toString((unique(cdr3))),
+#                        cell_beta_reads_list = toString(list(reads)),
+#                        cell_unique_betas = n_distinct(c(cdr3)),
+#                        cell_TRBV_list =toString(unique(v_gene)),
+#                        cell_TRBJ_list =toString(unique(j_gene)),
+#                 cell_OTI =toString(unique(OTI))
+# )
+# 
+# # TCR3$cell_OTI%>%table%>%View()
+# 
+# TCR3$cell_OTI2=TCR3$cell_OTI
+# TCR3[!TCR3$cell_OTI2%in%'Valpha, Vbeta','cell_OTI2']=NA
+# TCR3$cell_OTI2%>%table
+# # TCR2$barcode%>%table%>%View()
+# TCR3=TCR3[is.na(TCR3$cell_OTI)==F,]
+# TCR3=TCR3[(TCR3$cell_OTI%in%""==F),]
+# 
+# 
+# ######################################################################
+# 
+# SOmeta=SO@meta.data
+# SOmeta$Row.names=(rownames(SOmeta))
+# 
+# 
+# # merge by barcode causes duplcate rows because sequence can be from different sample so can't directly add to SO
+# TCR4=merge(SO@meta.data,TCR3[,c('barcode','cell_OTI','cell_OTI2')],by='barcode',all.x=T)
+# TCR3$barcode[duplicated(TCR3$barcode)]
+# TCR4$barcode[duplicated(TCR4$barcode)]
+# 
+# TCR4%>%nrow
+# TCR4[duplicated(TCR4$barcode)==F,]%>%nrow
+# SO@meta.data%>%nrow
+# 
+# # SO@meta.data%>%nrow
+# nrow(TCR4[is.na(TCR4$cell_OTI)==F,])
+# nrow(TCR3)
+# 
+# # TCR4%>%group_by("clonotype_id")%>%
+# #   summarise(cell_OTI=toString(unique(cell_OTI))
+# # )
+# # TCR4$cell_OTI%>%unique
+# # 
+# # rownames(TCR4)=TCR4$barcode
+# 
+# SOTCR=SO
+# SOTCR@meta.data=TCR4
+# 
+# 
+# ######################################################################
+# # Conotype1 has OT1 in Valpha and Vbeta
+# 
+# TCR4 %>%
+#   filter(clonotype_id %in% "clonotype1")%>%select(cell_OTI)%>%table
+# TCR4 %>%
+#   filter(clonotype_id %in% "clonotype1")%>%select(cell_OTI2)%>%table
+# TCR4 %>%
+#   filter(cell_OTI %in% "Valpha, Vbeta")%>%select(clonotype_id)%>%table
+# 
+# 
+
+######################################################################
+
+```
+
+
+## create hostogram of colotypes spliit by treatment 
+
+```{r,fig.asp=.5}
+
+######################################################################
+## create hostogram of colotypes spliit by treatment
+SOAB=SO
+# ## check all clonotypeX have same alpha and beta seq
+# for (x in unique(SOAB@meta.data$clonotype_id)) {
+# 
+#   if (SOAB@meta.data[SOAB@meta.data$clonotype_id%in%x,'ab_pair']%>%unique%>%length()>1) {
+#     stop(cat(x,': has multiple ab_pairs \n',
+#                SOAB@meta.data[SOAB@meta.data$clonotype_id%in%x,'ab_pair']%>%unique),'\n',
+#          
+#          
+#          )
+#     
+#   }
+# }
+
+
+clonotypes=SOAB@meta.data$clonotype_id%>%table%>%as.data.frame()
+clonotypes[order(clonotypes$Freq,decreasing = T),]
+
+meta=SOAB@meta.data
+# meta[meta$clonotype_id%in%'clonotype2','ab_pair']%>%unique
+# meta[meta$clonotype_id%in%'clonotype2','orig.ident']%>%unique
+clonotypes=SOAB@meta.data$clonotype_id%>%table%>%as.data.frame()
+
+# clonotypecheck=matrix(nrow=unique(meta$clonotype_id)%>%length(),ncol=2)
+# rownames(clonotypecheck)=unique(meta$clonotype_id)
+# colnames(clonotypecheck)=c('# of Clonotypes','# of samples')
+# for (x in unique(meta$clonotype_id)) {
+#   clonotypecheck[x,1]=meta[meta$clonotype_id%in%x,'ab_pair']%>%unique%>%length()
+#   clonotypecheck[x,2]=meta[meta$clonotype_id%in%x,'orig.ident']%>%unique%>%length()
+# 
+# }
+
+clonoTable=meta$ab_pair%>%table%>%as.data.frame()
+meta=rownames_to_column(meta)
+colnames(clonoTable)[1]='ab_pair'
+clonoTable=clonoTable[order(clonoTable$Freq,decreasing = T),]
+clonoTableUni=clonoTable[clonoTable$ab_pair%in%'Not captured'==F,]
+clonoTableUni$clonotype_univ=paste0('clonotype',seq(1,nrow(clonoTableUni)))
+
+meta=merge(meta,clonoTableUni[,c('ab_pair','clonotype_univ')],by='ab_pair',all.x=T)
+rownames(meta)=meta$rowname
+meta=meta[,colnames(meta)%in%'rowname'==F]
+meta[meta$ab_pair%in%'Not captured','clonotype_univ']='Not captured'
+meta[meta$clonotype_univ%in%'clonotype1','clonotype_univ']='OTI'
+
+
+SOAB=AddMetaData(SOAB,metadata = meta[,c('clonotype_univ'),drop=F],col.name ='clonotype_univ' )
+# SOAB@meta.data=meta
+
+p=meta[,c('clonotype_univ','Treatment')]#%>%group_by('clonotype_univ')%>%summarise(mean_home_run = sum(Treatment))
+p=p[p$clonotype_univ%in%c('OTI',paste0('clonotype',seq(1,100))),]
+p$clonotype_univ=factor(p$clonotype_univ,c('OTI',paste0('clonotype',seq(1,50))))
+p$Treatment=factor(p$Treatment, sort(unique(p$Treatment),decreasing = T))
+
+ggplot(p,aes(x=clonotype_univ,fill=Treatment))+geom_bar(stat = 'count',position = 'dodge')+
+    theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+#########################
+## Test old clonotypes
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype10',]%>%select(orig.ident)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype10',]%>%select(ab_pair)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype10',]%>%select(cell_beta_seq_list)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype10',]%>%select(cell_alpha_seq_list)%>%unique()
+
+
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype1',]%>%select(orig.ident)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype1',]%>%select(ab_pair)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype1',]%>%select(cell_beta_seq_list)%>%unique()
+SO@meta.data[SO@meta.data$clonotype_id%in%'clonotype1',]%>%select(cell_alpha_seq_list)%>%unique()
+
+
+### would like to double check that only clonotype1 is shared betweeen treatments
+```
+
+
+## create Pie Charts of colotypes spliit by treatment 
+
+```{r,fig.asp=.5}
+
+#######################
+## Pie Chart
+#######################
+meta_pie=meta[,c('clonotype_univ','Treatment')]
+meta_pie$clonotype_univ_sum=meta_pie$clonotype_univ
+
+
+#### sample top 20
+meta_pie_cntr=meta_pie[meta_pie$Treatment%in%cntrl_name,]
+tp_cntr=table(meta_pie_cntr[meta_pie_cntr$clonotype_univ%in%'Not captured'==F,'clonotype_univ_sum'] )%>%sort(decreasing = T)
+tp_cntr=tp_cntr[c(seq(1,10))]%>%names
+meta_pie_cntr[meta_pie_cntr$clonotype_univ%in%c(tp_cntr,'Not captured')==F,'clonotype_univ_sum']='Other'
+meta_pie_cntr$clonotype_univ_sum=factor(meta_pie_cntr$clonotype_univ_sum,levels = c('OTI',paste0('clonotype',seq(1,100)),'Other','Not captured'))
+
+meta_pie_caIL12=meta_pie[meta_pie$Treatment%in%IL12_name,]
+tp_caIL12=table(meta_pie_caIL12[meta_pie_caIL12$clonotype_univ%in%'Not captured'==F,'clonotype_univ_sum'] )%>%sort(decreasing = T)
+tp_caIL12=tp_caIL12[c(seq(1,10))]%>%names
+meta_pie_caIL12[meta_pie_caIL12$clonotype_univ%in%c(tp_caIL12,'Not captured')==F,'clonotype_univ_sum']='Other'
+meta_pie_caIL12$clonotype_univ_sum=factor(meta_pie_caIL12$clonotype_univ_sum,levels = c('OTI',paste0('clonotype',seq(1,100)),'Other','Not captured'))
+
+
+pal=c(brewer.pal(8,"Dark2"),brewer.pal(12,"Paired"),brewer.pal(9,"Set2"))%>%
+  # sort()%>%
+  unique
+  # show_col(pal)
+pal2=pal[c(10,1:4,6:7,9,11:13,15:21,16,14,8)]
+  # show_col(pal2)
+  # c(tp_caIL12,tp_cntr,'Other','Not captured')%>%length
+names(pal2)=c(tp_caIL12,tp_cntr,'Other','Not captured')%>%unique()
+
+
+ggplot(meta_pie_caIL12,aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() +
+  theme(legend.position="left") +scale_fill_manual(values = pal2)+ggtitle('caIL-12')+
+  guides(fill=guide_legend(title="TCR - Clonotype"))
+
+ggplot(meta_pie_cntr,aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() +
+  theme(legend.position="left") +scale_fill_manual(values = pal2)+ggtitle('Control')+
+  guides(fill=guide_legend(title="TCR - Clonotype"))
+
+
+scale=1.5
+ggplot(meta_pie_caIL12[meta_pie_caIL12$clonotype_univ_sum%in%'Not captured'==F,],aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="left") +scale_fill_manual(values = pal2)+ggtitle('caIL-12')+
+  guides(fill=guide_legend(title="TCR - Clonotype"))
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pie_caIL12.svg'),device = 'svg',width = (5.75*scale),height = (3*scale),units='in')
+
+
+ggplot(meta_pie_cntr[meta_pie_cntr$clonotype_univ_sum%in%'Not captured'==F,],aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="left") +scale_fill_manual(values = pal2)+ggtitle('Control')+
+  guides(fill=guide_legend(title="TCR - Clonotype"))
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pie_Control.svg'),device = 'svg',width = (5.75*scale),height = (3*scale),units='in')
+
+
+
+
+SOAB@meta.data$clonotype_univ_sum=as.character(SOAB@meta.data$clonotype_univ)
+SOAB@meta.data[SOAB@meta.data$clonotype_univ%in%c(tp_caIL12,tp_cntr,'Not captured')==F,'clonotype_univ_sum']="Other"
+SOAB@meta.data$clonotype_univ_sum=factor(SOAB@meta.data$clonotype_univ_sum,levels = c('OTI',paste0('clonotype',seq(1,100)),'Other','Not captured'))
+
+
+
+ subset(x=SOAB,subset=(Treatment==cntrl_name))%>%DimPlot(group.by='clonotype_univ_sum',)+scale_color_manual(values=pal2)+ggtitle('Control')
+ ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pieumap_Control.png'),device = 'png',width = 5.75,height = 3,units='in')
+ ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pieumap_Control.svg'),device = 'svg',width = 5.75,height = 3,units='in')
+ 
+  subset(x=SOAB,subset=(Treatment==IL12_name))%>%DimPlot(group.by='clonotype_univ_sum')+scale_color_manual(values=pal2)+ggtitle('caIL-12')
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pieumap_caIL12.png'),device = 'png',width = 5.75,height = 3,units='in')
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_Pieumap_caIL12.png'),device = 'png',width = 5.75,height = 3,units='in')
+  
+
+#### universal top 20
+meta_pie[meta_pie$clonotype_univ%in%c('OTI',paste0('clonotype',seq(1,10)))==F,'clonotype_univ_sum']='Other'
+meta_pie[meta_pie$clonotype_univ%in%'Not captured','clonotype_univ_sum']='Not captured'
+meta_pie$clonotype_univ_sum=factor(meta_pie$clonotype_univ_sum,levels = c('OTI',paste0('clonotype',seq(1,100)),'Other','Not captured'))
+
+
+ggplot(meta_pie[meta_pie$Treatment%in%IL12_name,],aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="left") +scale_fill_manual(values=pal2)+ggtitle('caIL-12')
+
+
+ggplot(meta_pie[meta_pie$Treatment%in%cntrl_name,],aes(x="",clonotype_univ_sum=,fill=clonotype_univ_sum))+
+  geom_bar(stat="count", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="left") +scale_fill_manual(values=pal2)+ggtitle('Control')
+
+
+meta_pie$Treatment%>%unique()
+```
+```{r, eval=F }
+
+SOAB=SO
+####################################### 
+### Create universal clonotype name based on ab_pair
+#######################################
+# SOAB@meta.data$ab_pair_universal
+ab=unique(SOAB@meta.data$ab_pair)
+ab=ab[ab%in%'Not captured'==F]
+for (x in 1:length(ab)) {
+abx=ab[x]
+SOAB@meta.data[SOAB@meta.data$ab_pair%in%abx,'ab_pair_universal']=paste0('clonotype',x)
+}
+SOAB@meta.data[is.na(SOAB@meta.data$ab_pair_universal),'ab_pair_universal']='Not captured'
+
+# SOAB@meta.data%>%View()
+#######################################
+#### Summary 
+#######################################
+# identify all clonotypes
+abu=unique(SOAB@meta.data$ab_pair_universal)
+
+# loop through all clonotypes and count how many cells have that clonotype
+abu_summary=matrix(nrow = 0,ncol=2)
+colnames(abu_summary)=c(IL12_name, cntrl_name)
+for (x in 1:length(abu)) {
+abux=abu[x]
+tbl=SOAB@meta.data[SOAB@meta.data$ab_pair_universal%in%abux,'Treatment']%>%table
+abu_summary=rbind(abu_summary,tbl)
+}
+abu_summary=as.data.frame(abu_summary)
+abu_summary$ab_pair_universal=abu
+### does not work, when clonotype in only one group it adds counts for both groups
+
+
+
+abu_summary$OTI_caIL12_percent=(abu_summary$OTI_caIL12/(sum(abu_summary$OTI_caIL12)+sum(abu_summary$OTI_control)))*100
+abu_summary$OTI_control_percent=(abu_summary$OTI_control/(sum(abu_summary$OTI_caIL12)+sum(abu_summary$OTI_control)))*100
+abu_summary=abu_summary[order(abu_summary$OTI_control,decreasing = T),]
+abu_summary=abu_summary[abu_summary$ab_pair_universal%in%'Not captured'==F,]
+rownames(abu_summary)=seq(1,nrow(abu_summary))     
+abu_summary$ab_pair_universalcntrl=paste0('clonotype',rownames(abu_summary))
+abu_summary$PercentDiff=abu_summary$OTI_control_percent-abu_summary$OTI_caIL12_percent    
+
+abu_summary2=abu_summary[rowSums(abu_summary[,c(IL12_name,cntrl_name)])>7,]
+abu_summary2$ab_pair_universalcntrl=factor(abu_summary2$ab_pair_universalcntrl,levels = abu_summary2$ab_pair_universalcntrl)
+plt=abu_summary2[,c("ab_pair_universalcntrl","OTI_caIL12_percent","OTI_control_percent")]%>%melt
+plt$variable=gsub('_percent','',plt$variable)
+  ggplot(plt,aes(x=ab_pair_universalcntrl,y=value,fill=variable))+geom_bar(stat='identity',position = 'dodge')+
+    theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ylab("Percent total Clonotypes")
+  
+  
+plt=abu_summary[,c("ab_pair_universalcntrl","PercentDiff")]
+plt=plt[order(abs(plt$PercentDiff),decreasing = T),]
+plt=plt[1:50,]
+plt$ab_pair_universalcntrl=factor(plt$ab_pair_universalcntrl,levels = plt$ab_pair_universalcntrl)
+plt%>%#melt%>%
+  ggplot(aes(x=ab_pair_universalcntrl,y=PercentDiff))+geom_bar(stat='identity',position = 'dodge')+
+    theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ylab("Percent Diff Control vs IL12")
+  
+  
+  
+  
+
+``` 
+
+
+
+
+## Population Figures 
+
+```{r}
+# SO$Likely_CellType%>%unique()
+
+
+SOAB@meta.data$OTI=SOAB@meta.data$clonotype_id
+SOAB@meta.data[!SOAB@meta.data$OTI%in%c('clonotype1','Not captured'),'OTI']=endo_name
+SOAB@meta.data[SOAB@meta.data$OTI%in%c('clonotype1'),'OTI']=ct1_name
+SOAB@meta.data$OTI%>%unique
+
+
+SOAB@meta.data$Treatment=factor(SOAB@meta.data$Treatment,levels=c(cntrl_name,IL12_name ))
+SOAB@meta.data$Likely_CellType=factor(SOAB@meta.data$Likely_CellType,levels=tcelpop)
+SOAB@meta.data$OTI=factor(SOAB@meta.data$OTI,levels=c(ct1_name,endo_name,'Not captured'))
+
+pal=c('red','dodgerblue2','grey')
+names(pal)=c(ct1_name,endo_name,'Not captured')
+
+p=DimPlot(SOAB,group.by='OTI')+scale_colour_manual(values=pal)
+ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_clonotype1.png'),device = 'png',width = 5.75,height = 3,units='in')
+p
+
+p=DimPlot(SOAB,group.by='OTI',split.by = 'Treatment')+scale_colour_manual(values=pal)
+ggsave(plot=p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_clonotype1_split.png'),device = 'png',width = 8,height = 3,units='in')
+p
+
+
+  subset(x=SOAB,subset=(Treatment==cntrl_name&OTI==ct1_name))%>%DimPlot(group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==cntrl_name&(OTI%in%ct1_name)==F))%>%DimPlot(group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==IL12_name&OTI==ct1_name))%>%DimPlot(group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==IL12_name&(OTI%in%ct1_name)==F))%>%DimPlot(group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+  
+  
+  
+p=DimPlot(SOAB,group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+ggsave(plot=p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_LikelyCelltype.png'),device = 'png',width = 5.75,height = 3,units='in')
+p
+
+p=DimPlot(SOAB,group.by='Likely_CellType',split.by = 'Treatment')+scale_color_manual(values=TcellClrs)
+ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_LikelyCelltype_split.png'),device = 'png',width = 8,height = 3,units='in')
+p
+  
+```
+
+## Freaquency table 
+
+```{r }
+
+
+cntTble=cbind(
+  table(subset(x=SOAB,subset=(Treatment==cntrl_name&OTI==ct1_name))@meta.data$Likely_CellType),
+  table(subset(x=SOAB,subset=(Treatment==cntrl_name&(OTI%in%ct1_name)==F))@meta.data$Likely_CellType),
+  table(subset(x=SOAB,subset=(Treatment==IL12_name&OTI==ct1_name))@meta.data$Likely_CellType),
+  table(subset(x=SOAB,subset=(Treatment==IL12_name&(OTI%in%ct1_name)==F))@meta.data$Likely_CellType)
+  )
+
+
+
+freqTble=apply(cntTble,2,FUN = function(x){
+  return(x/sum(x))
+  })
+colnames(freqTble)=c('Control-OTI','Control-Endo','caIL-12-OTI','caIL-12-Endo')
+freqTble=freqTble[,c('Control-OTI','caIL-12-OTI','Control-Endo','caIL-12-Endo')]
+freqTble=freqTble[rowSums(freqTble)>0,]
+
+ptbl=melt(freqTble)
+ptbl$Var1=factor(ptbl$Var1,levels=tcelpop)
+ptbl$PerValue=paste0(round(ptbl$value*100,0),'%')
+
+
+
+p=ptbl%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  theme_classic()+
+    geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values=TcellClrs)+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+p
+
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_freqOTIEndo_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*1.5,height = 3.5*1.5,units='in')
+
+scaleP=1
+
+p=ptbl[ptbl$Var2%in%c('Control-OTI','caIL-12-OTI'),]
+p$Var2=gsub('-OTI','',p$Var2)
+p$Var2=factor(p$Var2,levels =c('Control','caIL-12') )
+
+p=p%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  theme_classic()+
+    geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values=TcellClrs)+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 0))+
+  guides(fill=guide_legend(title="Cell Type"))+
+  ggtitle("Transfer T cel")+
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  axis.text.x = element_text( face="bold", colour = "black")
+  )
+p
+
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_freqOTI_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*scaleP,height = 3.5*scaleP,units='in')
+
+
+  
+p=ptbl[ptbl$Var2%in%c('Control-Endo','caIL-12-Endo'),]
+p$Var2=gsub('-Endo','',p$Var2)
+p$Var2=factor(p$Var2,levels =c('Control','caIL-12') )
+p=p%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  theme_classic()+
+    geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values=TcellClrs)+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 0))+
+  guides(fill=guide_legend(title="Cell Type"))+
+  ggtitle(endo_name)+
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  axis.text.x = element_text( face="bold", colour = "black")
+  )
+p
+
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_freqEndo_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*scaleP,height = 3.5*scaleP,units='in')
+  
+
+###########################################################################################  
+
+
+
+cntTble=cbind(table(subset(x=SOAB,subset=Treatment==cntrl_name)@meta.data$Likely_CellType),table(subset(x=SOAB,subset=Treatment==IL12_name)@meta.data$Likely_CellType))
+freqTble=apply(cntTble,2,FUN = function(x){
+  return(x/sum(x))
+  })
+# colSums(freqTble)
+colnames(freqTble)=c('Control','caIL-12')
+freqTble=freqTble[rowSums(freqTble)>0,]
+
+ptbl=melt(freqTble)
+ptbl$Var1=factor(ptbl$Var1,levels=tcelpop)
+ptbl$PerValue=paste0(round(ptbl$value*100,0),'%')
+
+
+p2=ptbl%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  scale_fill_manual(values=TcellClrs)+
+      geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  theme_classic()+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+  ggsave(plot = p2,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_freq_LikelyCelltype_split.svg'),device = 'svg',width = 4*1.5,height = 3.5*1.5,units='in')
+p2
+
+
+
+
+```
+
+## Cell type by cluster
+
+### Dot plot Annotation by cluster
+
+```{r}
+
+for(clst in c('0.2','0.4','0.6','0.8')){#,'1.0','1.2')){
+p=DimPlot(SOAB,group.by=paste0('SCT_snn_res.',clst))
+ggsave(plot=p,filename=(paste0('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_umap_cluster.',clst,'.png')),device = 'png',width = 5.75,height = 3,units='in')
+p  
+}
+
+clstrRes='SCT_snn_res.0.4'
+
+
+ 
+DimPlot(SOAB,group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+
+  # 
+  # DotPerc( object = SOAB,
+  #        cluster.numbers = unique(SOAB@meta.data[,clstrRes]),
+  #        cluster.names = unique(SOAB@meta.data[,clstrRes]),
+  #        cluster.column = clstrRes,
+  #        labels.column = 'Likely_CellType'
+  #        )$plot2+
+  #   # scale_color_manual(values=group_colors)+
+  #   xlab("Cluster") + ylab('Cell Type')
+
+ dp= DotPerc( object = SOAB,
+         cluster.numbers = unique(SOAB@meta.data[,'Likely_CellType']),
+         cluster.names = unique(SOAB@meta.data[,'Likely_CellType']),
+         cluster.column = 'Likely_CellType',
+         labels.column = clstrRes
+         )
+   dp$plot1#+    ylab("Cluster") + xlab('Cell Type')
+
+dp= DotPerc( object = SOAB,
+         cluster.numbers = unique(SOAB@meta.data[,clstrRes]),
+         cluster.names = unique(SOAB@meta.data[,clstrRes]),
+         cluster.column = clstrRes,
+         labels.column = 'Likely_CellType'
+         )
+   dp$plot1#+    ylab("Cluster") + xlab('Cell Type')
+
+   
+   
+  clstNames=SOAB@meta.data[,clstrRes]%>%unique
+  crn=          nameClusters(object = SOAB,
+                         cluster.numbers=clstNames,
+                         cluster.names=as.character(clstNames),
+                         cluster.column=clstrRes,
+                         labels.column='Likely_CellType',
+                         order.clusters.by = NULL,
+                         order.celltypes.by = NULL,
+                         interactive = FALSE,
+                         percent.cut=10)$plot
+            
+
+ggsave(plot = crn,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_ClustrByCelltype.png'),device = 'png',width = 5.75*1.2,height = 3*1.5,units='in') 
+  
+crn
+
+
+```
+
+
+
+### Cluster Gene Expressin
+
+```{r,echo=FALSE,message=F,warning=F,results=F,fig.show="hold", fig.asp=1,fig.width=8, out.width="50%"}
+GeneTable=read.csv('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/My_GeneListsForModScores.csv',header=T)
+
+for (g in colnames(GeneTable)) {
+  print(g)
+  genes=GeneTable[,g]
+  genes=genes[!genes%in%""]
+  
+  # if (length(genes)<3) {
+  #   ncols=1
+  # }else if(length(genes)<7&length(genes)>2){
+  #   ncols=2
+  # }else if(length(genes)>16){
+  #   next
+  #   # nrow=10
+  # }else{
+  #   ncols=3
+  # }
+
+if(length(genes)>=16){
+    print(paste0('skip: ',g,' length:',length(genes)))
+    next
+}else{
+  ncols=3
+  nrows=3
+}
+
+p=Custom_colorByGene(object=SOAB,
+                        # samples.to.include=SOAB.Modscore_1154$ms.object$orig.ident%>%unique(),
+                        samples.to.include=c(),
+                        gene=unique(genes),
+                        reduction.type = 'umap',
+                        return.seurat.object = FALSE,
+                        color = "red",
+                        point.size = 1,
+                        point.shape = 16,
+                        point.transparency = 0.5,
+                        use.cite.seq.data = FALSE,
+                        assay = "SCT")%>%suppressMessages()
+pout=grid.arrange(grobs = p$plot, ncol=ncols,nrow = nrows,
+            top=textGrob(g, gp=gpar(fontsize=25,font=8)))
+
+ggsave(plot=pout,filename=paste0('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_GeneExpres_',g,'.png'),device = 'png',width = 9,height = 8,units='in')
+}
+
+GeneTable2=GeneTable[,colnames(GeneTable)%in%tcelpop]
+GeneTable2=GeneTable2%>%t()%>%melt()
+GeneTable2=GeneTable2[!GeneTable2$value%in%"",]
+GeneTable2=GeneTable2[order(GeneTable2$Var1),]
+
+GeneTable2$Var1=factor(GeneTable2$Var1,levels = tcelpop)
+GeneTable2=GeneTable2[order(GeneTable2$Var1,decreasing = F),]
+
+xloc=(cumsum(table(GeneTable2$Var1)))
+names(xloc)=NULL
+
+xloc2=xloc-(table(GeneTable2$Var1)/2)%>%ceiling()+1
+names(xloc2)=NULL
+
+
+tcelpop2=gsub("_T$","",tcelpop)
+tcelpop2=gsub("_","\n",tcelpop2)
+
+DotPlot(SOAB,features=GeneTable2$value,group.by =clstrRes,cols = c("white", "red"))+
+  scale_x_discrete(guide = guide_axis(angle = 45))+
+  scale_y_discrete(expand=c(.1,.1),
+                   # breaks=c("a", "b"),
+                   # labels=c("a", "b"),
+                   # limits=c("a", "b", "c"),
+                  drop=FALSE)+
+  geom_vline(xintercept = xloc+.5, linetype=1, 
+                color = "grey", size=.5)+  
+  annotate(geom='text',x=c((xloc2[-length(xloc2)]+0)),y=rep(c(8.45),length(tcelpop2))[1:length(tcelpop2)-1],
+         label=tcelpop2[!tcelpop2%in%'unknown'],color="black",angle = 0,size=3)#,hjust = .9)
+
+# DotPlot(SOAB,GeneTable2$value,group.by =clstrRes,assay='SCT', scale.min=10)+
+#   scale_x_discrete(guide = guide_axis(angle = 45))+
+#   scale_y_discrete(expand=c(.1,.1),
+#                    # breaks=c("a", "b"),
+#                    # labels=c("a", "b"),
+#                    # limits=c("a", "b", "c"),
+#                   drop=FALSE)+
+#   geom_vline(xintercept = xloc+.5, linetype=1, 
+#                 color = "grey", size=.5)+  
+#   annotate(geom='text',x=c((xloc2[-length(xloc2)]+0)),y=rep(c(8.45),length(tcelpop2))[1:length(tcelpop2)-1],
+#          label=tcelpop2[!tcelpop2%in%'unknown'],color="black",angle = 0,size=3)#,hjust = .9)
+
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_ClustrByGenes.png'),device = 'png',width = 5.75*2,height = 3*2,units='in')
+
+# Likely_CellType_byClst
+DotPlot(SOAB,features=GeneTable2$value,group.by ='Likely_CellType')+
+  scale_x_discrete(guide = guide_axis(angle = 45))+
+  scale_y_discrete(expand=c(.1,.1),
+                   # breaks=c("a", "b"),
+                   # labels=c("a", "b"),
+                   # limits=c("a", "b", "c"),
+                  drop=FALSE)+scale_color_viridis_c()+
+  geom_vline(xintercept = xloc+.5, linetype=1, 
+                color = "grey", size=.5)+  
+  annotate(geom='text',x=c((xloc2[-length(xloc2)]+0)),y=rep(c(8.45),length(tcelpop2))[1:length(tcelpop2)-1],
+         label=tcelpop2[!tcelpop2%in%'unknown'],color="black",angle = 0,size=3)#,hjust = .9)
+
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_CelltypeByGenes.png'),device = 'png',width = 5.75*2,height = 3*2,units='in')
+
+SOAB@assays
+# 
+
+library(ComplexHeatmap)
+library(scales)
+cluster_colors=brewer.pal(length(unique(SOAB@meta.data[,clstrRes])),'Set3')
+names(cluster_colors)=unique(SOAB@meta.data[,clstrRes])
+
+cluster_colors=list(cluster=clusterPalat(sort(unique(SOAB@meta.data[,clstrRes])))[[1]])
+
+png(filename = ('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_ClustrByGenes_heatmap.png'),width = 5.75*2,height = 3*3,units='in',res = 300)
+hm=Custom_HM(geneTable=GeneTable[,colnames(GeneTable)%in%tcelpop],
+          object=SOAB,
+          clstr=clstrRes,
+          rot=0,
+            rowAnnot=T
+          )
+dev.off()
+
+
+
+
+
+```
+
+### Rename Cluster. 
+
+```{r}
+
+### Using original Gene Classification
+
+# SOAB$Likely_CellType_byClst=as.character(SOAB$SCT_snn_res.0.4)
+# SOAB$Likely_CellType_byClst=recode(SOAB@meta.data[['Likely_CellType_byClst']],
+# '7'='CD8_Exhausted',
+# '6'='CD4_T',
+# '5'='CD8_Naivelike',
+# '4'= 'CD8_Exhausted',
+# '3'='CD8_Ki67',
+# '2'= 'CD8_Exhausted',
+# '1'= 'CD8_Exhausted',
+# '0'= 'CD8_Naivelike')
+#             
+# SOAB@meta.data$Likely_CellType_byClst=factor(SOAB@meta.data$Likely_CellType_byClst,levels=tcelpop)
+
+### Using Updated Gene Classification
+
+
+ SOAB$Likely_CellType_byClst=as.character(SOAB$SCT_snn_res.0.4)
+SOAB$Likely_CellType_byClst=recode(SOAB@meta.data[['Likely_CellType_byClst']],
+'7'='CD8_Exhausted',
+'6'='CD4_T',
+'5'='CD8_Naivelike',
+'4'= 'CD8_Exhausted',
+'3'='CD8_Ki67',
+'2'= 'CD8_Exhausted',
+'1'= 'CD8_Effector',
+'0'= 'CD8_Naivelike',
+)
+
+
+GeneTable3=GeneTable[,colnames(GeneTable)%in%tcelpop]
+GeneTable3=GeneTable3%>%t()%>%melt()
+GeneTable3=GeneTable3[!GeneTable3$value%in%"",]
+GeneTable3=GeneTable3[order(GeneTable3$Var1),]
+
+GeneTable3$Var1=factor(GeneTable3$Var1,levels = tcelpop)
+GeneTable3=GeneTable3[order(GeneTable3$Var1,decreasing = F),]
+
+
+
+DotPlot(SOAB,features=GeneTable2$value,group.by ='Likely_CellType_byClst')+
+  xlab("")+ylab("")+
+  scale_x_discrete(guide = guide_axis(angle = 45))+
+  scale_y_discrete(expand=c(.1,.1),
+                   # breaks=c("a", "b"),
+                   # labels=c("a", "b"),
+                   # limits=c("a", "b", "c"),
+                  drop=FALSE)+scale_color_viridis_c()+
+  geom_vline(xintercept = xloc+.5, linetype=1, 
+                color = "grey", size=.5)+  
+  annotate(geom='text',x=c((xloc2[-length(xloc2)]+0)),y=rep(c(5.35),length(tcelpop2))[1:length(tcelpop2)-1],
+         label=tcelpop2[!tcelpop2%in%'unknown'],color="black",angle = 0,size=3)#,hjust = .9)
+
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_CelltypeByGenes2.png'),device = 'png',width = 5.75*2,height = 3*2,units='in')
+
+
+```
+
+
+### Population Figures 
+
+```{r}
+
+
+
+  subset(x=SOAB,subset=(Treatment==cntrl_name&OTI==ct1_name))%>%DimPlot(group.by='Likely_CellType_byClst')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==cntrl_name&(OTI%in%ct1_name)==F))%>%DimPlot(group.by='Likely_CellType_byClst')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==IL12_name&OTI==ct1_name))%>%DimPlot(group.by='Likely_CellType_byClst')+scale_color_manual(values=TcellClrs)
+  subset(x=SOAB,subset=(Treatment==IL12_name&(OTI%in%ct1_name)==F))%>%DimPlot(group.by='Likely_CellType_byClst')+scale_color_manual(values=TcellClrs)
+  
+  
+  
+p=DimPlot(SOAB,group.by='Likely_CellType_byClst')+scale_color_manual(values=TcellClrs)
+ggsave(plot=p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_umap_LikelyCelltype.png'),device = 'png',width = 5.75,height = 3,units='in')
+p
+
+p=DimPlot(SOAB,group.by='Likely_CellType_byClst',split.by = 'Treatment')+scale_color_manual(values=TcellClrs)
+ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_umap_LikelyCelltype_split.png'),device = 'png',width = 8,height = 3,units='in')
+p
+  
+```
+
+### Freaquency table 
+
+```{r}
+
+cntTble=cbind(
+  table(subset(x=SOAB,subset=(Treatment==cntrl_name&OTI==ct1_name))@meta.data$Likely_CellType_byClst),
+  table(subset(x=SOAB,subset=(Treatment==cntrl_name&(OTI%in%ct1_name)==F))@meta.data$Likely_CellType_byClst),
+  table(subset(x=SOAB,subset=(Treatment==IL12_name&OTI==ct1_name))@meta.data$Likely_CellType_byClst),
+  table(subset(x=SOAB,subset=(Treatment==IL12_name&(OTI%in%ct1_name)==F))@meta.data$Likely_CellType_byClst)
+  )
+
+
+
+freqTble=apply(cntTble,2,FUN = function(x){
+  return(x/sum(x))
+  })
+colnames(freqTble)=c('Control-OTI','Control-Endo','caIL-12-OTI','caIL-12-Endo')
+freqTble=freqTble[,c('Control-OTI','caIL-12-OTI','Control-Endo','caIL-12-Endo')]
+freqTble=freqTble[rowSums(freqTble)>0,]
+
+ptbl=melt(freqTble)
+ptbl$Var1=factor(ptbl$Var1,levels=tcelpop)
+ptbl$PerValue=paste0(round(ptbl$value*100,0),'%')
+
+
+p=ptbl%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  theme_classic()+
+    geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values=TcellClrs)+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+p
+
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_freqOTIEndo_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*1.5,height = 3.5*1.5,units='in')
+
+
+
+
+scaleP=1
+
+p=ptbl[ptbl$Var2%in%c('Control-OTI','caIL-12-OTI'),]
+p$Var2=gsub('-OTI','',p$Var2)
+p$Var2=factor(p$Var2,levels =c('Control','caIL-12') )
+p=p%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  theme_classic()+
+    geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  scale_fill_manual(values=TcellClrs)+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 0))+
+  guides(fill=guide_legend(title="Cell Type"))+
+  ggtitle("Transfer T cel")+
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  axis.text.x = element_text( face="bold", colour = "black")
+  )
+p
+
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_freqOTI_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*scaleP,height = 3.5*scaleP,units='in')
+p
+
+
+p=ptbl[ptbl$Var2%in%c('Control-Endo','caIL-12-Endo'),]
+p$Var2=gsub('-Endo','',p$Var2)
+p$Var2=factor(p$Var2,levels =c('Control','caIL-12') )
+p=p%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label=PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  scale_fill_manual(values=TcellClrs)+
+  theme_classic()+
+        geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 0))+
+  guides(fill=guide_legend(title="Cell Type"))+
+  ggtitle(endo_name)+
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  axis.text.x = element_text( face="bold", colour = "black")
+  )
+  ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_freqEndo_LikelyCelltype_split.svg'),device = 'svg',width = 4.5*scaleP,height = 3.5*scaleP,units='in')
+p
+
+
+#########################################################################################
+
+
+
+
+# SOAB@meta.data$Treatment%>%unique()
+cntTble=cbind(table(subset(x=SOAB,subset=Treatment==cntrl_name)@meta.data$Likely_CellType_byClst),table(subset(x=SOAB,subset=Treatment==IL12_name)@meta.data$Likely_CellType_byClst))
+freqTble=apply(cntTble,2,FUN = function(x){
+  return(x/sum(x))
+  })
+# colSums(freqTble)
+colnames(freqTble)=c(cntrl_name,IL12_name)
+freqTble=freqTble[rowSums(freqTble)>0,]
+
+ptbl=melt(freqTble)
+ptbl$Var1=factor(ptbl$Var1,levels=tcelpop)
+ptbl$PerValue=paste0(round(ptbl$value*100,0),'%')
+
+# p2=melt(freqTble)%>%ggplot(aes(x=Var2,y=value,fill=Var1))+geom_bar(stat = 'identity')+scale_fill_brewer(palette="Set1")+
+#   theme_classic()+
+#   ylab('Frequency of each cell type (100%)')+
+#   xlab("")+scale_x_discrete(guide = guide_axis(angle = 45))
+p2=ptbl%>%ggplot(
+       aes(y = value, x = Var2,fill=Var1,label = PerValue)) +
+  geom_flow(aes(alluvium = Var1), alpha= .2, 
+            lty = 2, color = "black",
+            curve_type = "linear", 
+            width = .5) +
+  geom_col(aes(fill = Var1), width = .5, color = "black") +
+  scale_fill_manual(values=TcellClrs)+
+  theme_classic()+
+      geom_text(size = 3, position = position_stack(vjust = 0.5))+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+  ggsave(plot = p2,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_freq_LikelyCelltype_split.svg'),device = 'svg',width = 4*1.5,height = 3.5*1.5,units='in')
+p2
+
+
+```
+
+## Fraction of Celltype in top clonotypes shown in Pie Charts
+
+```{r,fig.asp=.5,fig.width=10}
+
+   SOAB$clonotype_univ_sum2=SOAB$clonotype_univ_sum
+   SOAB$clonotype_univ_sum2=factor(SOAB$clonotype_univ_sum2,levels = unique(SOAB$clonotype_univ_sum2))
+
+SOAB2=subset(SOAB,clonotype_univ_sum2!='Not captured')   
+maxC=gsub('clonotype',"",unique(SOAB2@meta.data[,'clonotype_univ_sum2']))%>%as.numeric%>%max(na.rm = T)
+SOAB2$clonotype_univ_sum2=factor(SOAB2$clonotype_univ_sum2,levels = c('OTI',paste0('clonotype',c(2:maxC)),'Other'))
+
+
+# levels((unique(SOAB2@meta.data[,'clonotype_univ_sum2'])))
+SOAB2$clonotype_univ_sum3=as.character(SOAB2$clonotype_univ_sum2)
+# SOAB2$clonotype_univ_sum2%>%unique()
+# SOAB2$Treatment%>%unique
+
+    SOAB2@meta.data[(SOAB2$Treatment%in%'OT-I-control')&(SOAB2$clonotype_univ_sum2%in%'OTI'),'clonotype_univ_sum3'] = 'Control OTI'
+    SOAB2@meta.data[SOAB2$Treatment%in%'OT-I-caIL-12'&SOAB2$clonotype_univ_sum2%in%'OTI','clonotype_univ_sum3'] = 'caIL-12 OTI'
+    
+    SOAB2@meta.data[(SOAB2$Treatment%in%'OT-I-control')&(SOAB2$clonotype_univ_sum2%in%'Other'),'clonotype_univ_sum3'] = 'Control Other'
+    SOAB2@meta.data[(SOAB2$Treatment%in%'OT-I-caIL-12')&(SOAB2$clonotype_univ_sum2%in%'Other'),'clonotype_univ_sum3'] = 'caIL-12 Other'  
+
+dp= DotPerc( object = SOAB2,
+         # cluster.numbers = (unique(SOAB2@meta.data[,'clonotype_univ_sum2'])),
+         # cluster.names = (unique(SOAB2@meta.data[,'clonotype_univ_sum2'])),
+         cluster.column = 'clonotype_univ_sum3',
+         order.clusters.by=c("caIL-12 OTI","clonotype2", "clonotype3", "clonotype4",  "clonotype6", "clonotype8", "clonotype11", "clonotype12", "clonotype14", "clonotype15",'caIL-12 Other',
+                             'Control OTI',"clonotype5", "clonotype7", "clonotype9", "clonotype10", "clonotype13", "clonotype19", "clonotype20", "clonotype25", "clonotype29", 'Control Other'),
+         labels.column = 'Likely_CellType_byClst',
+         scaletext = F,
+         percent.size = 10,
+         percent.cut=1
+         )
+   dp$plot2 + scale_color_manual(values=TcellClrs)#+    ylab("Cluster") + xlab('Cell Type')
+
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/Celltype_ByCluster/FiltedNKandFibro_PiePerc_Likely_CellType_byClst.pdf'),device = 'pdf',width = 5.75*1.6,height = 3*1.5,units='in') 
+  
+
+
+
+```
+```{r,eval=F}
+
+##### Check percentages in dotplot   
+SOAB2$Likely_CellType_byClst=factor(SOAB2$Likely_CellType_byClst,levels = c('CD4_T', 'CD8_Effector', 'CD8_Exhausted', 'CD8_Ki67', 'CD8_Naivelike', 'CD8_T', 'unknown'))
+PercTable=levels(SOAB2$Likely_CellType_byClst)%>%as.data.frame()
+colnames(PercTable)='Likely_CellType_byClst'
+
+   for (l in unique(SOAB2$clonotype_univ_sum2)){
+     SOAB_T=subset(SOAB2,clonotype_univ_sum2==l)
+     out=(table(SOAB_T$Likely_CellType_byClst)/sum(table(SOAB_T$Likely_CellType_byClst)))*100
+     out=as.data.frame(out)
+     colnames(out)[colnames(out)%in%'Freq']=l
+    PercTable= merge(PercTable,out,by.x='Likely_CellType_byClst',by.y='Var1')
+   }
+   
+PercTable
+
+
+```
+
+
+### Violin
+
+```{r,eval=F}
+## Givn to Ling to make plots in ..... did not work
+xxx
+genes=fread('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/Analysis/gene_list_for_violin_plot.txt',sep = '\t')
+
+
+
+counts=SOAB@assays$SCT@scale.data
+counts=counts[rownames(counts)%in%genes$Genes,]
+counts=t(counts)
+
+meta=SOAB@meta.data[,c('orig.ident','Treatment','OTI'),drop=F]
+meta$group=gsub('clonotype1','OTI',meta$OTI)
+meta$group=gsub('Not captured',endo_name,meta$group)
+meta$group=paste0(gsub('OTI_','',meta$Treatment),"_",meta$group)
+
+counts=merge(meta,counts,by='row.names')
+
+write_delim(counts,'/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/Analysis/counts_for_violin_plot.txt',delim = '\t',col_names=T)
+
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r,eval=F}
+# install.packages('rBLAST', repos = 'https://mhahsler.r-universe.dev')
+library('rBLAST')
+predict(TCR_CaIL12[,'fwr1_nt',drop=F], seq[1,], BLAST_args = "-perc_identity 99")
+
+
+
+
+
+```
+
+
+## DEG IL12vsControl 
+
+```{r eval=T}
+# xxx
+# SOAB@meta.data%>%colnames
+# SOAB@meta.data$OTI%>%head
+# SOAB@meta.data$OTI%>%unique()
+# SOAB@meta.data$Treatment%>%unique
+
+ vp_case1 <- function(SOv,gene_signature, file_name, test_sign,group,sigTbl){
+  plot_case1 <- function(signature, y_max = NULL,pval=NULL){
+    VlnPlot(SOv, features = signature,
+            pt.size = 0, 
+            group.by = group, 
+            y.max = y_max
+    ) + theme(legend.position = "none") +
+      theme(axis.text.x = element_text(angle = 0,vjust = 0.5, hjust=.5,face="bold"))+
+      xlab("")+
+      stat_compare_means(comparisons = test_sign, label = "p.signif",size=0)+
+      geom_text(x=1.5,y=y_max,#size =2, 
+    label =pval )
+  }
+  plot_list <- list()
+  y_max_list <- list()
+  for (gene in gene_signature) {
+    if (gene%in%rownames(SOv@assays[['SCT']])==F) {
+      print(gene)
+      next
+    }else{
+      pvalx=sigTbl[sigTbl$Gene%in%gene,grep('p_val_caIL12vsControl',colnames(sigTbl),value = T)]
+    plot_list[[gene]] <- plot_case1(gene)
+    y_max_list[[gene]] <- max(plot_list[[gene]]$data[[gene]])
+    plot_list[[gene]] <- plot_case1(gene, y_max = (y_max_list[[gene]] + 1),pval=formatC(pvalx, format = "e", digits = 2) )
+      }
+    }
+  cowplot::plot_grid(plotlist = plot_list)
+  # file_name <- paste0(file_name, "rplot.png")
+  # ggsave(file_name, width = 14, height = 8)
+  
+ }
+
+GOI=c('Ifng','Gzmb','Prf1','Gzma','Ifitm1','Ifitm3','Cx3cr1','Tnf','Lag3','Ctla4','Havcr2','Pdcd1','Mki67','Tcf7','Ccr7','Sell','Il7r','Klf2','Il2ra','Ccl3','Ccr5')
+
+GOIV=c('Ifng', 'Gzmb', 'Prf1', 'Gzma', 'Ifitm1', 'Ifitm3', 'Lag3', 'Ctla4', 'Havcr2', 'Pdcd1', 'Mki67', 'Tcf7', 'Ccr7', 'Sell', 'Klf2', 'Il2ra', 'Ccl3', 'Ccr5')
+
+GOI2=read.delim('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/References/FiltedNKandFibro_DEGmast_Endogenous.txt',sep = '\t')
+
+GOI2=GOI2[GOI2$GOI>0,'genes']
+
+
+GOI3=fread('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/Analysis/gene_list_for_violin_FiltedNKandFibro_DEGpseudo_Endogenous Ling04182024.txt',sep = '\t')
+
+GOI3=GOI3[GOI3$GOI>0,'Gene',drop=T]
+GOI3=GOI3$Gene
+
+GOI=GOI3
+# p=subset(SOAB,subset=OTI%in%endo_name)%>%DimPlot(group.by='Likely_CellType')+scale_color_manual(values=TcellClrs)
+# ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_EndogenousLikely_CellType.png'),device = 'png',width = 5.75,height = 3,units='in')
+# p=subset(SOAB,subset=OTI%in%endo_name)%>%DimPlot(group.by='Likely_CellType',split.by = 'Treatment')+scale_color_manual(values=TcellClrs)
+# ggsave(plot=p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_EndogenousLikely_CellType_split.png'),device = 'png',width = 8,height = 3,units='in')
+
+```
+
+### MAST - All
+
+```{r, V4 vs V5, eval=F,fig.asp=.75}
+# library(remotes)
+# remotes::install_version("SeuratObject", "4.1.4", repos = c("https://satijalab.r-universe.dev", getOption("repos")),lib='/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat4_1')
+# remotes::install_version("Seurat", version = "4.1.0",lib='/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat4_1')
+# remotes::install_version("rgeos", version = "0.6-4")
+# remotes::install_version("SeuratObject", version = "4.1.0",lib='/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Rlib/4.3/Seurat4_1')
+
+
+SOx=readRDS('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/seurat_object_ReclusteredSO_RmvNKandFibro.rds')
+
+
+### Seurat V4 - DEG MAST
+switchLib('V4')
+
+Idents(SOx) <- "Treatment"
+
+
+SOx4=SOx
+mast.treatment.deALLx <- SOx4%>%PrepSCTFindMarkers() %>%
+                          FindMarkers( ident.1 = IL12_name, ident.2 = cntrl_name,
+                                     logfc.threshold = 1,
+                                     min.pct = 0.1,
+                                    test.use = 'MAST',
+                                    assay = "SCT",slot='counts',verbose = FALSE)
+
+
+
+
+### Seurat V5 - DEG MAST No Update SuratObject
+
+switchLib('V5')
+
+SOx5=SOx
+mast.treatment.deALLxV5 <- SOx5%>%
+                          FindMarkers( ident.1 = IL12_name, ident.2 = cntrl_name,
+                                       logfc.threshold = 1,
+                                       # min.pct = 0.1,
+                                    test.use = 'MAST',
+                                    assay = "SCT",slot='counts',verbose = FALSE)
+
+
+
+
+### Seurat V5 - DEG MAST set min.pct
+
+SOx52=SOx
+mast.treatment.deALLxV52 <- SOx52%>%
+                          FindMarkers( ident.1 = IL12_name, ident.2 = cntrl_name,
+                                       logfc.threshold = 1,
+                                       min.pct = 0.1,
+                                    test.use = 'MAST',
+                                    assay = "SCT",slot='counts',verbose = FALSE)
+
+
+
+### Seurat V5 - DEG MAST
+
+SOx53=SOx
+SOx53=UpdateSeuratObject(SOx53)
+mast.treatment.deALLxV53 <- SOx53%>%PrepSCTFindMarkers() %>%
+                          FindMarkers( ident.1 = IL12_name, ident.2 = cntrl_name,
+                                       logfc.threshold = 1,
+                                       min.pct = 0.1,
+                                    test.use = 'MAST',
+                                    assay = "SCT",slot='counts',verbose = FALSE)
+
+
+
+
+
+
+EnhancedVolcano(mast.treatment.deALLx,
+    lab = rownames(mast.treatment.deALLx),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    # y = 'p_val_adj',
+    y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1,
+    title = 'Seurat V4 - Mast'
+    )%>%print()
+
+
+EnhancedVolcano(mast.treatment.deALLxV5,
+    lab = rownames(mast.treatment.deALLxV5),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    # y = 'p_val_adj',
+    y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1,
+    title = 'Seurat V5 - Mast NO Update Seurat Object No pct.lim'
+    )%>%print()
+
+
+
+EnhancedVolcano(mast.treatment.deALLxV52,
+    lab = rownames(mast.treatment.deALLxV52),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    # y = 'p_val_adj',
+    y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1,
+    title = 'Seurat V5 - Mast NO Update Seurat Object'
+    )%>%print()
+
+EnhancedVolcano(mast.treatment.deALLxV52,
+    lab = rownames(mast.treatment.deALLxV52),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    # y = 'p_val_adj',
+    y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1,
+    title = 'Seurat V5 - MAST'
+    )%>%print()
+
+ggVennDiagram(
+  list(V4=rownames(mast.treatment.deALLx[mast.treatment.deALLx$p_val_adj<.05&mast.treatment.deALLx$avg_log2FC>1,]), 
+           v5=rownames(mast.treatment.deALLxV53[mast.treatment.deALLxV53$p_val_adj<.05&mast.treatment.deALLxV53$avg_log2FC>1,])
+           )
+  )
+
+```
+
+### Pseudo - Endo
+
+```{r,pseudo Bulk, eval=T, fig.asp=1.25}
+
+switchLib('V5')
+
+
+SOv=subset(SOAB,subset=OTI%in%endo_name)
+pseudo_SO <- SOv%>%AggregateExpression(assays = "RNA", return.seurat = T, group.by=c("orig.ident",'Treatment'))
+SOv$Treatment=gsub('OTI_',"",SOv$Treatment)
+
+# pseudo_SO@meta.data%>%colnames
+# pseudo_SO@meta.data$Treatment%>%unique
+# pseudo_SO@meta.data$orig.ident%>%unique
+Idents(pseudo_SO) <- "Treatment"
+
+bulk.treatment.de <- FindMarkers(object = pseudo_SO, 
+                         ident.1 = IL12_name, 
+                         ident.2 = cntrl_name,
+                         min.pct = 0.25,
+                         test.use = "DESeq2")
+bulk.treatment.de=bulk.treatment.de[is.na(bulk.treatment.de$p_val)==F,]
+bulk.treatment.de=bulk.treatment.de[is.na(bulk.treatment.de$p_val_adj)==F,]
+colnames(bulk.treatment.de)=paste(colnames(bulk.treatment.de),'caIL12vsControl',sep = '_')
+bulk.treatment.de=tibble::rownames_to_column(bulk.treatment.de, "Gene")
+
+
+
+write.table(bulk.treatment.de,'/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_Endogenous.csv',quote = T,sep = ',',row.names = F)
+
+
+# bulk.treatment.de[bulk.treatment.de$Gene%in%GOI,]
+ v=EnhancedVolcano(bulk.treatment.de,
+    lab = bulk.treatment.de$Gene,
+    selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC_caIL12vsControl',
+    y = 'p_val_caIL12vsControl',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+ggsave(plot=v,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_Endogenous.png'),device = 'png',width = 8,height = 8,units='in')
+
+
+bulk.treatment.de[bulk.treatment.de$Gene%in%GOI,]
+
+setdiff(GOIV,rownames(SOv@assays$SCT@scale.data))
+setdiff(GOIV,rownames(SOv@assays$SCT@data))
+setdiff(GOIV,rownames(SOAB@assays$SCT@scale.data))
+setdiff(GOIV,rownames(SOAB@assays$SCT@data))
+setdiff(GOIV,rownames(SOAB@assays$RNA@counts))
+setdiff(GOIV,rownames(SOAB@assays$RNA@data))
+setdiff(GOIV,rownames(SOAB@assays$RNA@scale.data))
+
+gene_sig <- GOIV
+gene_sig <- c("Ifng", "Gzmb", "Prf1", "Ifitm1", "Ifitm3", "Lag3", "Ctla4", "Havcr2", "Pdcd1", "Il2ra", "Ccr5", "Ccl3", "Mki67", "Klf2", "Tcf7", "Ccr7", "Sell")
+
+SOv$Treatment2=gsub('OT-I-','',SOv$Treatment)
+
+comparisons <- list(c("control", "caIL-12"))
+vp_case1(SOv=SOv,gene_signature = gene_sig, file_name = "seurat", test_sign = comparisons,group='Treatment2',
+         sigTbl=bulk.treatment.de)+theme(axis.text.x = element_text(size = 12))
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_Endogenous_Violin.pdf'),device = 'pdf',width = 15,height = 15,units='in')
+
+```
+
+### Pseudo - ALL
+
+```{r,pseudo Bulk, eval=T, fig.asp=1.5}
+
+switchLib('V5')
+
+
+SOall=SOAB
+pseudo_SOall =SOall%>%AggregateExpression(assays = "RNA", return.seurat = T, group.by=c("orig.ident",'Treatment'))
+SOall$Treatment=gsub('OTI_',"",SOall$Treatment)
+
+# pseudo_SO@meta.data%>%colnames
+# pseudo_SO@meta.data$Treatment%>%unique
+# pseudo_SO@meta.data$orig.ident%>%unique
+Idents(pseudo_SOall) <- "Treatment"
+
+bulk.treatment.de.all <- FindMarkers(object = pseudo_SOall, 
+                         ident.1 = IL12_name, 
+                         ident.2 = cntrl_name,
+                         min.pct = 0.25,
+                         test.use = "DESeq2")
+bulk.treatment.de.all=bulk.treatment.de.all[is.na(bulk.treatment.de.all$p_val)==F,]
+bulk.treatment.de.all=bulk.treatment.de.all[is.na(bulk.treatment.de.all$p_val_adj)==F,]
+colnames(bulk.treatment.de.all)=paste(colnames(bulk.treatment.de.all),'caIL12vsControl',sep = '_')
+bulk.treatment.de.all=tibble::rownames_to_column(bulk.treatment.de.all, "Gene")
+
+# bulk.treatment.de.all[bulk.treatment.de.all$Gene%in%GOI,]%>%View
+
+
+write.table(bulk.treatment.de.all,'/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_All.csv',quote = T,sep = ',',row.names = F)
+
+
+# bulk.treatment.de[bulk.treatment.de$Gene%in%GOI,]
+ v=EnhancedVolcano(bulk.treatment.de.all,
+    lab = bulk.treatment.de.all$Gene,
+    selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC_caIL12vsControl',
+    y = 'p_val_caIL12vsControl',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+ggsave(plot=v,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_All.png'),device = 'png',width = 8,height = 8,units='in')
+
+
+
+  
+  
+ 
+gene_sig <- GOIV
+comparisons <- list(c("control", "caIL-12"))
+vp_case1(SOv=SOall,gene_signature = gene_sig, file_name = "seurat", test_sign = comparisons,group='Treatment',
+         sigTbl=bulk.treatment.de.all)
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGpseudo_All_Violin.pdf'),device = 'pdf',width = 15,height = 15,units='in')
+
+
+```
+
+```{r libra,eval=F}
+xxxx
+
+switchLib('V5')
+library('Libra')
+
+SOl=SOAB
+DefaultAssay(SOl)='RNA'
+
+
+
+run_de(SOAB, de_family = 'pseudobulk', de_method = 'DESeq2', de_type = 'LRT',
+       replicate_col='Treatment',
+       cell_type_col = 'Likely_CellType',label_col = 'orig.ident',
+       input_type='scRNA')
+
+
+
+
+ data("hagai_toy")
+ run_de(hagai_toy, de_family = 'pseudobulk', de_method = 'DESeq2', de_type = 'LRT',
+        replicate_col ='replicate',
+   cell_type_col = 'cell_type',
+   label_col = 'label'
+        )
+ 
+ hagai_toy@meta.data
+
+
+tops= to_pseudobulk(
+   input=SOl,
+   replicate_col ='Treatment',
+   cell_type_col = 'Likely_CellType',
+   label_col = 'orig.ident')
+ 
+ tops= to_pseudobulk(input = hagai_toy)
+
+
+ 
+ input=SOl
+   replicate_col ='Treatment'
+   cell_type_col = 'Likely_CellType'
+   label_col = 'orig.ident'
+
+ to_pseudobulk = function(input, 
+                         meta = NULL, 
+                         replicate_col = 'replicate',
+                         cell_type_col = 'cell_type',
+                         label_col = 'label',
+                         min_cells = 3,
+                         min_reps = 2,
+                         min_features = 0,
+                         external = T) {
+  if (external) {
+    # first, make sure inputs are correct
+    inputs = Libra:::check_inputs(
+      input, 
+      meta = meta,
+      replicate_col = replicate_col,
+      cell_type_col = cell_type_col,
+      label_col = label_col)
+    expr = inputs$expr
+    meta = inputs$meta
+  } else {
+    expr = input
+  }
+
+  # convert to characters
+  meta %<>% mutate(replicate = as.character(replicate),
+                   cell_type = as.character(cell_type),
+                   label = as.character(label))
+  
+  # keep only cell types with enough cells
+  keep = meta %>%
+    dplyr::count(cell_type, label) %>%
+    group_by(cell_type) %>%
+    filter(all(n >= min_cells)) %>%
+    pull(cell_type) %>%
+    unique()
+  
+  # process data into gene x replicate x cell_type matrices
+  pseudobulks = keep %>%
+    map( ~ {
+      print(.)
+      cell_type = .
+      meta0 = meta %>% filter(cell_type == !!cell_type)
+      expr0 = expr %>% magrittr::extract(, meta0$cell_barcode)
+      # catch cell types without replicates or conditions
+      if (n_distinct(meta0$label) < 2)
+        return(NA)
+      replicate_counts = distinct(meta0, label, replicate) %>%
+        group_by(label) %>%
+        summarise(replicates = n_distinct(replicate)) %>%
+        pull(replicates)
+      if (any(replicate_counts < min_reps))
+        return(NA)
+      
+      # process data into gene X replicate X cell_type matrice
+      mm = model.matrix(~ 0 + replicate:label, data = meta0)
+      mat_mm = expr0 %*% mm
+      keep_genes = rowSums(mat_mm > 0) >= min_features
+      mat_mm = mat_mm[keep_genes, ] %>% as.data.frame()
+      mat_mm %<>% as.data.frame()
+      colnames(mat_mm) = gsub("replicate|label", "", colnames(mat_mm))
+      # drop empty columns
+      keep_samples = colSums(mat_mm) > 0
+      mat_mm %<>% magrittr::extract(, keep_samples)
+      return(mat_mm)
+    }) %>%
+    setNames(keep)
+  
+  # drop NAs
+  pseudobulks %<>% magrittr::extract(!is.na(.))
+  
+  # also filter out cell types with no retained genes
+  min_dim = map(pseudobulks, as.data.frame) %>% map(nrow)
+  pseudobulks %<>% magrittr::extract(min_dim > 1)
+  
+  # also filter out types without replicates
+  min_repl = map_int(pseudobulks, ~ {
+    # make sure we have a data frame a not a vector
+    tmp = as.data.frame(.)
+    targets = data.frame(group_sample = colnames(tmp)) %>%
+      mutate(group = gsub(".*\\:", "", group_sample))
+    if (n_distinct(targets$group) == 1)
+      return(as.integer(0))
+    min(table(targets$group))
+  })
+  pseudobulks %<>% magrittr::extract(min_repl >= min_reps)
+  return(pseudobulks)
+}
+
+```
+
+### MAST - Endo
+
+```{r,Endo MAST eval=T}
+switchLib('V5')
+
+
+deg_SO <- subset(SOAB,subset=OTI%in%endo_name)%>%PrepSCTFindMarkers()
+Idents(deg_SO) <- "Treatment"
+deg_SO@meta.data$Treatment%>%unique
+mast.treatment.deEnd <- FindMarkers(deg_SO, 
+                                    ident.1 = IL12_name, 
+                                    ident.2 = cntrl_name,
+                                    logfc.threshold = 0,
+                                    min.pct = 0.25,
+                                    test.use = 'MAST', assay = "SCT",slot='counts',verbose = FALSE)
+write.table(mast.treatment.deEnd,'/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGmast_Endogenous.txt',quote = T,sep = '\t')
+
+ v=EnhancedVolcano(mast.treatment.deEnd,
+    lab = rownames(mast.treatment.deEnd),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+ggsave(plot=v,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGmast_Endogenous.png'),device = 'png',width = 8,height = 8,units='in')
+
+
+
+
+
+switchLib('V4')
+
+
+deg_SOV4 <- subset(SOAB,subset=OTI%in%endo_name)%>%PrepSCTFindMarkers()
+Idents(deg_SOV4) <- "Treatment"
+deg_SOV4@meta.data$Treatment%>%unique
+mast.treatment.deEndV4 <- FindMarkers(deg_SOV4, 
+                                    ident.1 = IL12_name, 
+                                    ident.2 = cntrl_name,
+                                    logfc.threshold = 0,
+                                    min.pct = 0.25,
+                                    test.use = 'MAST', assay = "SCT",slot='counts',verbose = FALSE)
+
+v=EnhancedVolcano(mast.treatment.deEndV4,
+    lab = rownames(mast.treatment.deEndV4),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+ 
+library(VennDiagram)
+library(grid)
+library(ggVennDiagram)
+
+
+ggVennDiagram(
+  list(pseudo=bulk.treatment.de[bulk.treatment.de$p_val_caIL12vsControl<1e-05&bulk.treatment.de$avg_log2FC_caIL12vsControl>1,'Gene'], 
+           MAST=rownames(mast.treatment.deEnd[mast.treatment.deEnd$p_val<1e-05&mast.treatment.deEnd$avg_log2FC>1,]),
+       MASTV4=rownames(mast.treatment.deEndV4[mast.treatment.deEndV4$p_val<1e-05&mast.treatment.deEndV4$avg_log2FC>1,])
+           )
+  )
+
+
+```
+
+## Pathway Anlysis
+
+```{r,fig.asp=.5}
+
+GSEA=read.csv('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/GSEA_Preranked.csv',header = T)
+# GSEA$log10padj=-log10(GSEA$padj)
+
+
+###############################
+GSEA=read.delim('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/GSEA hallmark and go database-LingALL.txt',header = T,sep = '\t')
+
+GSEApoi=read.delim('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/GSEA hallmark and go database-LingPOI.txt',header = T,sep = '\t')
+
+GSEA=GSEA[GSEA$pathway%in%GSEApoi$X,]
+###############################
+
+GSEA=GSEA[order(GSEA$NES,decreasing = F),]
+GSEA$pathway=gsub('KEGG_|GO_|HALLMARK_','',GSEA$pathway)
+GSEA$pathway=factor(GSEA$pathway, levels = GSEA$pathway)
+
+
+GSEA%>%ggplot( aes(x=pathway, y=NES,fill=padj)) + 
+  geom_bar(stat = "identity",) +
+  coord_flip()+
+  theme_classic()
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_pathway_OTIvControl.png'),device = 'png',width = 7,height = 3.5,units='in')
+
+
+
+GSEA_PB=read.csv('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/GSEAFiltered_PsudoBulk.csv',header = T)
+# GSEA$log10padj=-log10(GSEA$padj)
+
+GSEA_PB=GSEA_PB[order(GSEA_PB$NES,decreasing = F),]
+GSEA_PB=GSEA_PB[GSEA_PB$padj<.05,]
+GSEA_PB=GSEA_PB[GSEA_PB$collection%in%'C7: immunologic signatures',]
+GSEA_PB=GSEA_PB[GSEA_PB$fraction_leadingEdge>.25,]
+GSEA_PB=GSEA_PB[c(1:10,(nrow(GSEA_PB)-10):nrow(GSEA_PB)),]
+
+GSEA_PB$pathway=gsub('C7: immunologic signatures','',GSEA_PB$pathway)
+GSEA_PB$pathway=factor(GSEA_PB$pathway, levels = GSEA_PB$pathway)
+
+
+
+GSEA_PB%>%ggplot( aes(x=pathway, y=NES,fill=pval)) + 
+  geom_bar(stat = "identity") +
+  coord_flip()+
+  theme_classic()
+ggsave(filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_pathway_PseudoBulk_OTIvControl.png'),device = 'png',width = 12,height = 3.5,units='in')
+
+
+
+```
+
+```{r,All MAST, eval=F}
+
+degAll_SO <- SOAB%>%PrepSCTFindMarkers()
+degAll_SO <- SOAB
+Idents(degAll_SO) <- "Treatment"
+degAll_SO@meta.data$Treatment%>%unique
+mast.treatment.deALL2 <- FindMarkers(degAll_SO, ident.1 = IL12_name, ident.2 = cntrl_name,logfc.threshold = 1,
+                                    # test.use = 'MAST',
+                                    assay = "SCT",slot='counts',verbose = FALSE)
+write.table(mast.treatment.deALL,'/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGmast_All.txt',quote = T,sep = '\t')
+
+
+ # v=
+   EnhancedVolcano(mast.treatment.deALL,
+    lab = rownames(mast.treatment.deALL),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    y = 'p_val_adj',
+    # y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+ 
+ EnhancedVolcano(mast.treatment.deALL2,
+    lab = rownames(mast.treatment.deALL2),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC',
+    # y = 'p_val_adj',
+    y = 'p_val',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+```
+# ggsave(plot=v,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_DEGmast_All.png'),device = 'png',width = 8,height = 8,units='in')
+
+
+```{r,NIDAP, eval=F}
+
+NIDAPdeg=read.csv('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/NIDAP/DEGMarkers.csv')
+ggVennDiagram(
+  list(rownames(NIDAPdeg[NIDAPdeg$p_val_adj_OTI_caIL12_vs_OTI_control<.05&NIDAPdeg$avg_log2FC_OTI_caIL12_vs_OTI_control>1,]), 
+           rownames(mast.treatment.deALL[mast.treatment.deALL$p_val_adj<.5&mast.treatment.deALL$avg_log2FC>1,])
+           )
+  )
+EnhancedVolcano(NIDAPdeg,
+    lab = (NIDAPdeg$Gene),
+        selectLab = GOI,
+    maxoverlapsConnectors=Inf,
+    labSize = 4.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.75,
+    x = 'avg_log2FC_OTI_caIL12_vs_OTI_control',
+    y = 'p_val_OTI_caIL12_vs_OTI_control',
+    pCutoff = 1e-05,
+    FCcutoff = 1
+    )%>%print()
+
+
+# # degAll_SO_SCW=degGeneExpressionMarkers(object=degAll_SO,
+# degAll_SO_SCW=degGeneExpressionMarkers(object=SO2,
+#                                     # samples=c("CaIL12_HTO01","CaIL12_HTO02","CaIL12_HTO03","MSaV1_HTO01","MSaV1_HTO02","MSaV1_HTO03"),
+#                                      samples=unique(SO2@meta.data$orig.ident),
+#                                      contrasts="OTI_caIL12-OTI_control",
+#                                      parameter.to.test = "Treatment",
+#                                      test.to.use = "MAST",
+#                                      log.fc.threshold = 0,
+#                                      use.spark = FALSE,
+#                                      assay.to.use = "SCT"
+# )
+# 
+# 
+# 
+# 
+# EnhancedVolcano(degAll_SO_SCW$df,
+#     lab = (degAll_SO_SCW$df$Gene),
+#     x = 'avg_log2FC_OTI_caIL12_vs_OTI_control',
+#     y = 'p_val_OTI_caIL12_vs_OTI_control',
+#     pCutoff = 1e-05,
+#     FCcutoff = 1
+#     )%>%print()
+# 
+# out.df
+
+intersect(degAll_SO_SCW$df$Gene%>%unique(),NIDAPdeg$Gene)%>%unique()%>%length()
+setdiff(degAll_SO_SCW$df$Gene%>%unique(),NIDAPdeg$Gene)%>%unique()%>%length
+
+
+```
+
+
+```{r ProjecTILs,eval=F}
+# https://github.com/carmonalab/ProjecTILs
+
+# install.packages("remotes")
+# library(remotes)
+# remotes::install_github("carmonalab/STACAS")
+# remotes::install_github("carmonalab/ProjecTILs",force=T)
+# must be off of VPN to download
+library(ProjecTILs)
+# ref <- load.reference.map()
+ref=readRDS("/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/Analysis/ref_TILAtlas_mouse_v1.rds")
+# data(query_example_seurat)
+# query.projected <- Run.ProjecTILs(query_example_seurat, ref=ref)
+
+
+
+######################################
+## Run.ProjecTILs
+out=Run.ProjecTILs(query = SOAB, ref = ref,filter.cells = F,reduction = 'umap')
+DimPlot(out, label = T,group.by = 'functional.cluster')
+DimPlot(out, label = T,group.by = 'functional.cluster.conf')
+DimPlot(SOAB, label = T,group.by = 'Likely_CellType')
+out@meta.data%>%colnames
+
+
+######################################
+## make.projection
+
+query.projected <- make.projection(SOAB, ref = ref, ncores = 2,filter.cells = F)
+  query.projected@meta.data%>%colnames
+DimPlot(query.projected, label = T,group.by = 'Likely_CellType')
+
+
+p1 <- plot.projection(ref)
+p2 <- plot.projection(ref, query.projected, linesize = 0.5, pointsize = 0.5)
+grid.arrange(p1, p2, ncol = 2)
+p1;p2
+plot.statepred.composition(ref, query.projected, metric = "Percent")
+
+######################################
+## ProjecTILs.classifier - pca
+querydata <- ProjecTILs.classifier(query = SOAB, ref = ref,filter.cells = F,reduction = "pca")
+DimPlot(querydata, label = T,group.by = 'functional.cluster')+scale_color_manual(values=TcellClrs)
+p=DimPlot(querydata, label = F,group.by = 'functional.cluster',split='Treatment')+scale_color_manual(values=TcellClrs)
+ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_umap_ProjecTIL_split.png'),device = 'png',width = 8,height = 4,units='in')
+
+
+tbl=querydata@meta.data[,'functional.cluster']%>%table%>%as.data.frame()
+colnames(tbl)=c('Population','freq')
+tbl$Tcells='Tcells'
+ggplot(tbl, aes(fill=Population, y=freq, x=Tcells)) + 
+    geom_bar(position="stack", stat="identity")+scale_fill_brewer(palette="Set1")
+
+
+querydata@meta.data$functional.cluster=factor(querydata@meta.data$functional.cluster,levels = sort(unique(querydata@meta.data$functional.cluster)))
+cntTble=cbind(table(subset(x=querydata,subset=Treatment==cntrl_name)@meta.data$functional.cluster),table(subset(x=querydata,subset=Treatment==IL12_name)@meta.data$functional.cluster))
+freqTble=apply(cntTble,2,FUN = function(x){
+  return(x/sum(x))
+  })
+# colSums(freqTble)
+colnames(freqTble)=c(cntrl_name,IL12_name)
+
+melt(freqTble)%>%ggplot(aes(x=Var2,y=value,fill=Var1))+geom_bar(stat = 'identity')+scale_fill_brewer(palette="Set1")+
+  theme_classic()+
+  ylab('Frequency of each cell type (100%)')+
+  xlab("")+scale_x_discrete(guide = guide_axis(angle = 45))
+  # ggsave(plot = p,filename=('/Users/homanpj/Library/CloudStorage/OneDrive-NationalInstitutesofHealth/Loaner/ccbr1256/ccbr1256_Figures/FiltedNKandFibro_freq_LikelyCelltype_split.png'),device = 'png',width = 3.5,height = 3.5,units='in')
+
+
+
+## ProjecTILs.classifier - umap
+querydata2 <- ProjecTILs.classifier(query = SOAB, ref = ref,filter.cells = F,reduction = "umap")
+DimPlot(querydata, label = T,group.by = 'functional.cluster')
+DimPlot(querydata2, label = T,group.by = 'functional.cluster')
+
+
+```
+
+
+
+
+
+
+
